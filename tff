@@ -158,7 +158,7 @@
                     ctx.fillText(nickname, playerX, playerY - 20);
                 };
             }
-        }
+        });
 
         function sendMove(x, y) {
             socket.emit('move', { x, y });
@@ -217,8 +217,12 @@
             }
         }
 
-        // Iniciar o jogo diretamente quando a página carregar
-        setNickname();
+        // Iniciar o jogo após o carregamento da página
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('nicknameDialog').style.display = 'block'; // Mostrar o diálogo de entrada do nickname
+        });
+
+        updatePosition();
     </script>
 </body>
 </html>
