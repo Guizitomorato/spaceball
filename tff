@@ -6,6 +6,25 @@
         /* Estilos para o canvas */
         #gameCanvas {
             border: 1px solid black;
+            display: none; /* Esconder o canvas até o início do jogo */
+        }
+
+        #avatarSelection {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #avatarSelection img {
+            width: 100px; /* Ajustar o tamanho dos avatares na seleção */
+            height: 100px;
+            margin: 5px;
+            cursor: pointer;
+            border: 3px solid transparent; /* Adicionar uma borda inicial transparente */
+        }
+
+        #avatarSelection img.selected {
+            border-color: blue; /* Adicionar uma borda azul para indicar o avatar selecionado */
         }
     </style>
 </head>
@@ -14,6 +33,11 @@
         <label for="nickname">Nickname:</label>
         <input type="text" id="nickname" maxlength="20">
         <button onclick="setNickname()">Confirmar</button>
+    </div>
+    <div id="avatarSelection">
+        <p>Escolha seu avatar:</p>
+        <img src="https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png" onclick="selectAvatar(1)">
+        <img src="https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png" onclick="selectAvatar(2)">
     </div>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
@@ -31,6 +55,7 @@
         let nickname = '';
         let playerId = null;
         let gameStarted = false;
+        let selectedAvatar = 1; // Avatar padrão selecionado
         const players = {}; // Armazenar informações dos jogadores conectados
 
         function setNickname() {
@@ -38,14 +63,27 @@
             if (inputNickname.trim() !== '') {
                 nickname = inputNickname;
                 document.getElementById('nicknameDialog').style.display = 'none'; // Esconder o diálogo de entrada do nickname
+                document.getElementById('avatarSelection').style.display = 'none'; // Esconder a seleção de avatar
+                document.getElementById('gameCanvas').style.display = 'block'; // Mostrar o canvas
                 gameStarted = true; // Permitir o início do jogo
-                socket.emit('setNickname', { nickname }); // Enviar o nickname para o servidor
+                socket.emit('setNickname', { nickname, avatar: selectedAvatar }); // Enviar o nickname e o avatar selecionado para o servidor
                 startGame();
             }
         }
 
+        function selectAvatar(avatarNumber) {
+            selectedAvatar = avatarNumber;
+            const avatarImages = document.querySelectorAll('#avatarSelection img');
+            avatarImages.forEach((img, index) => {
+                if (index + 1 === avatarNumber) {
+                    img.classList.add('selected'); // Adicionar a classe 'selected' ao avatar selecionado
+                } else {
+                    img.classList.remove('selected'); // Remover a classe 'selected' dos outros avatares
+                }
+            });
+        }
+
         function startGame() {
-            document.getElementById('gameCanvas').style.display = 'block'; // Mostrar o canvas
             playerId = socket.id; // Armazenar o ID do jogador local
             setupEventListeners(); // Configurar os eventos de movimentação do jogador
             updatePosition();
@@ -63,7 +101,7 @@
         socket.on('playerLeft', (data) => {
             if (gameStarted) {
                 const leftPlayerNickname = data.nickname;
-                delete players[leftPlayerNickname];
+                delete players[leftPlayerNickname]; // Remove o jogador desconectado da lista de jogadores
             }
         });
 
@@ -76,9 +114,15 @@
                         playerX = playerData.x;
                         playerY = playerData.y;
                         nickname = playerData.nickname;
+                        selectedAvatar = playerData.avatar;
                     } else {
                         // Se jogador remoto, atualize a lista de jogadores
-                        players[socketId] = { x: playerData.x, y: playerData.y, nickname: playerData.nickname };
+                        players[socketId] = {
+                            x: playerData.x,
+                            y: playerData.y,
+                            nickname: playerData.nickname,
+                            avatar: playerData.avatar,
+                        };
                     }
                 }
 
@@ -90,29 +134,31 @@
                     const x = playerData.x;
                     const y = playerData.y;
                     const remoteNickname = playerData.nickname;
+                    const remoteAvatar = new Image();
+                    remoteAvatar.src = getAvatarURL(playerData.avatar);
 
-                    ctx.beginPath();
-                    ctx.arc(x, y, 10, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'red'; // Jogador remoto é vermelho
-                    ctx.fill();
-                    ctx.closePath();
-
-                    ctx.font = '12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(remoteNickname, x, y - 20);
+                    // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
+                    remoteAvatar.onload = () => {
+                        ctx.drawImage(remoteAvatar, x - 10, y - 10, 20, 20);
+                        ctx.font = '12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(remoteNickname, x, y - 20);
+                    };
                 }
 
-                // Desenhar o jogador local (bola) na posição x, y
-                ctx.beginPath();
-                ctx.arc(playerX, playerY, 10, 0, 2 * Math.PI);
-                ctx.fillStyle = 'blue'; // Jogador local é azul
-                ctx.fill();
-                ctx.closePath();
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(nickname, playerX, playerY - 20);
+                // Desenhar o jogador local (avatar selecionado) na posição x, y
+                const localAvatar = new Image();
+                localAvatar.src = getAvatarURL(selectedAvatar);
+
+                // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
+                localAvatar.onload = () => {
+                    ctx.drawImage(localAvatar, playerX - 10, playerY - 10, 20, 20);
+                    ctx.font = '12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(nickname, playerX, playerY - 20);
+                };
             }
-        });
+        }
 
         function sendMove(x, y) {
             socket.emit('move', { x, y });
@@ -151,7 +197,7 @@
                 playerX += moveX;
                 playerY += moveY;
 
-                // Restringir a posição da bola aos limites da tela
+                // Restringir a posição do avatar aos limites da tela
                 playerX = Math.max(10, Math.min(canvas.width - 10, playerX));
                 playerY = Math.max(10, Math.min(canvas.height - 10, playerY));
 
@@ -160,12 +206,19 @@
             }
         }
 
-        // Iniciar o jogo após o carregamento da página
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('nicknameDialog').style.display = 'block'; // Mostrar o diálogo de entrada do nickname
-        });
+        function getAvatarURL(avatarNumber) {
+            switch (avatarNumber) {
+                case 1:
+                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
+                case 2:
+                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png';
+                default:
+                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
+            }
+        }
 
-        updatePosition();
+        // Iniciar o jogo diretamente quando a página carregar
+        setNickname();
     </script>
 </body>
 </html>
