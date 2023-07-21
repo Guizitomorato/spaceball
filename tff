@@ -3,9 +3,19 @@
 <head>
     <title>Jogo Multiplayer</title>
     <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f1f1f1;
+        }
+
         /* Estilos para o canvas */
         #gameCanvas {
-            border: 1px solid black;
+            border: 2px solid black;
+            background-color: white;
             display: none; /* Esconder o canvas até o início do jogo */
         }
 
@@ -13,18 +23,21 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
+            margin-top: 20px;
         }
 
         #avatarSelection img {
-            width: 100px; /* Ajustar o tamanho dos avatares na seleção */
-            height: 100px;
-            margin: 5px;
+            width: 120px;
+            height: 120px;
+            margin: 10px;
             cursor: pointer;
-            border: 3px solid transparent; /* Adicionar uma borda inicial transparente */
+            border: 4px solid transparent;
+            border-radius: 50%;
+            transition: border-color 0.3s;
         }
 
         #avatarSelection img.selected {
-            border-color: blue; /* Adicionar uma borda azul para indicar o avatar selecionado */
+            border-color: #00f1ff;
         }
     </style>
 </head>
@@ -75,7 +88,7 @@
             selectedAvatar = avatarNumber;
             const avatarImages = document.querySelectorAll('#avatarSelection img');
             avatarImages.forEach((img, index) => {
-                if (index + 1 === avatarNumber) {
+                if (avatarNumber === index + 1) {
                     img.classList.add('selected'); // Adicionar a classe 'selected' ao avatar selecionado
                 } else {
                     img.classList.remove('selected'); // Remover a classe 'selected' dos outros avatares
@@ -139,10 +152,10 @@
 
                     // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
                     remoteAvatar.onload = () => {
-                        ctx.drawImage(remoteAvatar, x - 10, y - 10, 20, 20);
-                        ctx.font = '12px Arial';
+                        ctx.drawImage(remoteAvatar, x - 30, y - 30, 60, 60);
+                        ctx.font = '16px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText(remoteNickname, x, y - 20);
+                        ctx.fillText(remoteNickname, x, y - 40);
                     };
                 }
 
@@ -152,10 +165,10 @@
 
                 // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
                 localAvatar.onload = () => {
-                    ctx.drawImage(localAvatar, playerX - 10, playerY - 10, 20, 20);
-                    ctx.font = '12px Arial';
+                    ctx.drawImage(localAvatar, playerX - 30, playerY - 30, 60, 60);
+                    ctx.font = '16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(nickname, playerX, playerY - 20);
+                    ctx.fillText(nickname, playerX, playerY - 40);
                 };
             }
         });
@@ -198,24 +211,24 @@
                 playerY += moveY;
 
                 // Restringir a posição do avatar aos limites da tela
-                playerX = Math.max(10, Math.min(canvas.width - 10, playerX));
-                playerY = Math.max(10, Math.min(canvas.height - 10, playerY));
+                playerX = Math.max(30, Math.min(canvas.width - 30, playerX));
+                playerY = Math.max(30, Math.min(canvas.height - 30, playerY));
 
                 // Enviar a posição atualizada para o servidor
                 sendMove(playerX, playerY);
             }
         }
 
-        function getAvatarURL(avatarNumber) {
-            switch (avatarNumber) {
-                case 1:
-                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
-                case 2:
-                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png';
-                default:
-                    return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
-            }
-        }
+      function getAvatarURL(avatarNumber) {
+    switch (avatarNumber) {
+        case 1:
+            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
+        case 2:
+            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png';
+        default:
+            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
+    }
+}
 
         // Iniciar o jogo após o carregamento da página
         document.addEventListener('DOMContentLoaded', () => {
