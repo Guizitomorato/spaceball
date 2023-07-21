@@ -218,8 +218,7 @@
                 sendMove(playerX, playerY);
             }
         }
-
-      function getAvatarURL(avatarNumber) {
+        function getAvatarURL(avatarNumber) {
     switch (avatarNumber) {
         case 1:
             return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
@@ -230,6 +229,8 @@
     }
 }
 
+
+      
         // Iniciar o jogo após o carregamento da página
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('nicknameDialog').style.display = 'block'; // Mostrar o diálogo de entrada do nickname
