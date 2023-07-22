@@ -1,242 +1,156 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Jogo Multiplayer</title>
+    <title>Chat Multiplayer - Estilo Omegle</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
-            background-color: #f1f1f1;
         }
-
-        /* Estilos para o canvas */
-        #gameCanvas {
-            border: 2px solid black;
-            background-color: white;
-            display: none; /* Esconder o canvas até o início do jogo */
-        }
-
-        #avatarSelection {
+        #chat-container {
+            max-width: 600px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            padding: 20px;
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
+        }
+        #chat-box {
+            flex-grow: 1;
+            overflow-y: scroll;
+            padding: 10px;
+            background-color: #f2f2f2;
+        }
+        .message {
+            background-color: #e6e6e6;
+            padding: 10px;
+            margin: 5px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .your-message {
+            align-self: flex-end;
+            background-color: #b3e6b3;
+        }
+        .nickname-section {
+            display: flex;
             justify-content: center;
-            margin-top: 20px;
+            align-items: center;
+            margin-top: 10px;
         }
-
-        #avatarSelection img {
-            width: 120px;
-            height: 120px;
-            margin: 10px;
-            cursor: pointer;
-            border: 4px solid transparent;
+        .nickname-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        .nickname-input:focus {
+            border-color: #4CAF50;
+            outline: none;
+            box-shadow: 2px 2px 5px rgba(76, 175, 80, 0.5);
+        }
+        .color-picker {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ccc;
             border-radius: 50%;
-            transition: border-color 0.3s;
+            margin-right: 5px;
+            cursor: pointer;
         }
-
-        #avatarSelection img.selected {
-            border-color: #00f1ff;
+        .room-selector {
+            margin-left: 10px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .send-button {
+            margin-left: 10px;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease-in-out;
+        }
+        .send-button:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
 <body>
-    <div id="nicknameDialog">
-        <label for="nickname">Nickname:</label>
-        <input type="text" id="nickname" maxlength="20">
-        <button onclick="setNickname()">Confirmar</button>
+    <div id="chat-container">
+        <h1 style="text-align: center; color: #4CAF50;">Chat Multiplayer - Estilo Omegle</h1>
+        <div class="nickname-section">
+            <input type="text" class="nickname-input" placeholder="Digite seu apelido">
+            <input type="color" class="color-picker" value="#000000">
+            <select id="room-selector" class="room-selector">
+                <option value="global">Chat Global</option>
+                <option value="sala1">Sala 1</option>
+                <option value="sala2">Sala 2</option>
+                <!-- Adicione outras opções de salas aqui -->
+            </select>
+            <button onclick="joinChat()" class="send-button">Entrar no Chat</button>
+        </div>
+        <div id="chat-box" style="display: none;"></div>
+        <div class="message-section" style="display: none;">
+            <input type="text" id="message-input" placeholder="Digite sua mensagem">
+            <button onclick="sendMessage()" class="send-button">Enviar</button>
+        </div>
     </div>
-    <div id="avatarSelection">
-        <p>Escolha seu avatar:</p>
-        <img src="https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png" onclick="selectAvatar(1)">
-        <img src="https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png" onclick="selectAvatar(2)">
-    </div>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+
     <script>
-        const socket = io('http://localhost:5000'); // Conexão com o servidor
+        /* Código JavaScript com a nova função de canal (salas de chat) */
+        const nickSection = document.querySelector('.nickname-section');
+        const nicknameInput = document.querySelector('.nickname-input');
+        const nicknameColorInput = document.querySelector('.color-picker');
+        const roomSelector = document.getElementById('room-selector');
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.querySelector('.send-button');
+        const socket = new WebSocket('ws://localhost:8765');
+        let nickname = null;
+        let nicknameColor = '#000000'; // Cor padrão inicial
+        let selectedRoom = 'global';   // Sala padrão inicial
 
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const moveSpeed = 5;
-
-        let playerX = canvas.width / 2;
-        let playerY = canvas.height / 2;
-        let moveX = 0;
-        let moveY = 0;
-        let nickname = '';
-        let playerId = null;
-        let gameStarted = false;
-        let selectedAvatar = 1; // Avatar padrão selecionado
-        const players = {}; // Armazenar informações dos jogadores conectados
-
-        function setNickname() {
-            const inputNickname = document.getElementById('nickname').value;
-            if (inputNickname.trim() !== '') {
-                nickname = inputNickname;
-                document.getElementById('nicknameDialog').style.display = 'none'; // Esconder o diálogo de entrada do nickname
-                document.getElementById('avatarSelection').style.display = 'none'; // Esconder a seleção de avatar
-                document.getElementById('gameCanvas').style.display = 'block'; // Mostrar o canvas
-                gameStarted = true; // Permitir o início do jogo
-                socket.emit('setNickname', { nickname, avatar: selectedAvatar }); // Enviar o nickname e o avatar selecionado para o servidor
-                startGame();
+        function joinChat() {
+            const nick = nicknameInput.value.trim();
+            if (nick !== '') {
+                nickname = nick;
+                nicknameColor = nicknameColorInput.value;
+                selectedRoom = roomSelector.value; // Obter a sala selecionada
+                nickSection.style.display = 'none';
+                chatBox.style.display = 'block';
+                document.querySelector('.message-section').style.display = 'flex';
+                document.getElementById('message-input').focus();
+                socket.send(JSON.stringify({ type: 'join', nickname, nicknameColor, room: selectedRoom }));
             }
         }
 
-        function selectAvatar(avatarNumber) {
-            selectedAvatar = avatarNumber;
-            const avatarImages = document.querySelectorAll('#avatarSelection img');
-            avatarImages.forEach((img, index) => {
-                if (avatarNumber === index + 1) {
-                    img.classList.add('selected'); // Adicionar a classe 'selected' ao avatar selecionado
-                } else {
-                    img.classList.remove('selected'); // Remover a classe 'selected' dos outros avatares
-                }
-            });
-        }
-
-        function startGame() {
-            playerId = socket.id; // Armazenar o ID do jogador local
-            setupEventListeners(); // Configurar os eventos de movimentação do jogador
-            updatePosition();
-        }
-
-        socket.on('connect', () => {
-            console.log(`Conectado com o ID: ${socket.id}`);
-        });
-
-        socket.on('disconnect', () => {
-            console.log(`Desconectado do servidor`);
-            // Limpeza do jogo, caso necessário
-        });
-
-        socket.on('playerLeft', (data) => {
-            if (gameStarted) {
-                const leftPlayerNickname = data.nickname;
-                delete players[leftPlayerNickname]; // Remove o jogador desconectado da lista de jogadores
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'message') {
+                const { nickname, message, nicknameColor } = data;
+                chatBox.innerHTML += `<p class="message" style="color: ${nicknameColor};"><strong>${nickname}</strong>: ${message}</p>`;
             }
-        });
+        };
 
-        socket.on('update', (serverPlayers) => {
-            if (gameStarted) {
-                // Atualizar as informações dos jogadores conectados
-                for (const [socketId, playerData] of Object.entries(serverPlayers)) {
-                    if (socketId === playerId) {
-                        // Se o jogador local, atualize a posição
-                        playerX = playerData.x;
-                        playerY = playerData.y;
-                        nickname = playerData.nickname;
-                        selectedAvatar = playerData.avatar;
-                    } else {
-                        // Se jogador remoto, atualize a lista de jogadores
-                        players[socketId] = {
-                            x: playerData.x,
-                            y: playerData.y,
-                            nickname: playerData.nickname,
-                            avatar: playerData.avatar,
-                        };
-                    }
-                }
-
-                // Limpar o canvas antes de desenhar os jogadores atualizados
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // Desenhar todos os jogadores
-                for (const playerData of Object.values(players)) {
-                    const x = playerData.x;
-                    const y = playerData.y;
-                    const remoteNickname = playerData.nickname;
-                    const remoteAvatar = new Image();
-                    remoteAvatar.src = getAvatarURL(playerData.avatar);
-
-                    // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
-                    remoteAvatar.onload = () => {
-                        ctx.drawImage(remoteAvatar, x - 30, y - 30, 60, 60);
-                        ctx.font = '16px Arial';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(remoteNickname, x, y - 40);
-                    };
-                }
-
-                // Desenhar o jogador local (avatar selecionado) na posição x, y
-                const localAvatar = new Image();
-                localAvatar.src = getAvatarURL(selectedAvatar);
-
-                // Certifique-se de carregar a imagem do avatar antes de desenhá-la no canvas
-                localAvatar.onload = () => {
-                    ctx.drawImage(localAvatar, playerX - 30, playerY - 30, 60, 60);
-                    ctx.font = '16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(nickname, playerX, playerY - 40);
-                };
-            }
-        });
-
-        function sendMove(x, y) {
-            socket.emit('move', { x, y });
+        function sendMessage() {
+            const message = messageInput.value;
+            socket.send(JSON.stringify({ type: 'message', nickname, message, nicknameColor, room: selectedRoom }));
+            chatBox.innerHTML += `<p class="message your-message" style="color: ${nicknameColor};"><strong>${nickname}</strong>: ${message}</p>`;
+            messageInput.value = '';
         }
-
-        // Capturar eventos de teclas para movimentar o jogador local
-        function setupEventListeners() {
-            document.addEventListener('keydown', (event) => {
-                switch (event.keyCode) {
-                    case 37: // Esquerda
-                        moveX = -moveSpeed;
-                        break;
-                    case 38: // Cima
-                        moveY = -moveSpeed;
-                        break;
-                    case 39: // Direita
-                        moveX = moveSpeed;
-                        break;
-                    case 40: // Baixo
-                        moveY = moveSpeed;
-                        break;
-                }
-            });
-
-            document.addEventListener('keyup', () => {
-                moveX = 0;
-                moveY = 0;
-            });
-        }
-
-        function updatePosition() {
-            if (gameStarted) {
-                requestAnimationFrame(updatePosition);
-
-                // Atualizar a posição do jogador local com base nas teclas pressionadas
-                playerX += moveX;
-                playerY += moveY;
-
-                // Restringir a posição do avatar aos limites da tela
-                playerX = Math.max(30, Math.min(canvas.width - 30, playerX));
-                playerY = Math.max(30, Math.min(canvas.height - 30, playerY));
-
-                // Enviar a posição atualizada para o servidor
-                sendMove(playerX, playerY);
-            }
-        }
-        function getAvatarURL(avatarNumber) {
-    switch (avatarNumber) {
-        case 1:
-            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
-        case 2:
-            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-18-14-296.png';
-        default:
-            return 'https://moratoproject.000webhostapp.com/Avatares/Picsart_23-07-20_00-19-21-262.png';
-    }
-}
-
-
-      
-        // Iniciar o jogo após o carregamento da página
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('nicknameDialog').style.display = 'block'; // Mostrar o diálogo de entrada do nickname
-        });
-
-        updatePosition();
     </script>
 </body>
 </html>
